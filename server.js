@@ -139,7 +139,9 @@ app.get('/', (req, res) => {
       clients: '/api/clients',
       orders: '/api/orders',
       shifts: '/api/shifts',
-      rewards: '/api/admin/rewards'
+      rewards: '/api/admin/rewards',
+      banners: '/api/banners',  // ✅ Add this
+      productForCustomer: '/api/admin/productforcostumer'  // ✅ Add this too
     }
   });
 });

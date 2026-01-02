@@ -128,7 +128,7 @@ app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'Indiego Art API Server',
-    version: '1.1.0',
+    version: '1.2.0',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',

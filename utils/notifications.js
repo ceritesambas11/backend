@@ -101,6 +101,8 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
     const body = statusMessages[newStatus] || `Status pesanan berubah menjadi ${newStatus}`;
 
     // Panggil API Backend Customer untuk kirim FCM
+    const apiKey = process.env.INTERNAL_API_KEY || process.env.INTERNAL_SECRET || 'indiegoart-internal-2026';
+    
     const response = await axios.post(
       `${CUSTOMER_BACKEND_URL}/api/notifications/send`,
       {
@@ -118,7 +120,8 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
       {
         timeout: 5000,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
         }
       }
     );

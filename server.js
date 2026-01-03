@@ -37,11 +37,14 @@ const bannerRoutes = require('./routes/bannerRoutes');
 const internalRoutes = require("./routes/internalRoutes");
 const ownerTableRoutes = require("./routes/ownerTableRoutes");
 const adminRewardRoutes = require("./routes/adminRewardRoutes"); // ?? NEW!
+const notificationRoutes = require('./routes/notifications');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ==================== MIDDLEWARE ====================
+app.use('/api/notifications', notificationRoutes);
 // CORS - Allow all origins including mobile apps (Capacitor WebView)
 app.use(cors({
   origin: function(origin, callback) {

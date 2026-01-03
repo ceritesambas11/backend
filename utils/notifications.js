@@ -1,211 +1,180 @@
 // utils/notifications.js
-const db = require("../config/database");
-const { sendNotificationToRole } = require("../services/fcmService");
+
+const axios = require('axios');
+const db = require('../config/database');
+
+// ====================================================
+// SOCKET.IO NOTIFICATIONS (Internal - Admin/Owner)
+// ====================================================
 
 /**
- * Mapping status order ke target role yang perlu menerima notifikasi
- * ? UPDATED: Sesuai dengan flow aktual
+ * Kirim notifikasi order baru ke admin & owner via Socket.IO
  */
-const STATUS_TO_ROLE_MAP = {
-  "Di Desain": ["desainer"],       // ? Admin assign ke desainer
-  "Acc Admin": ["admin"],          // ? Desainer selesai, notif ke admin
-  "Operator": ["operator"],        // ? Admin assign ke operator (bukan "Proses Cetak")
-  "Selesai": ["admin"],            // ? Operator selesai, notif ke admin
-  "Dikirim": ["admin", "owner"],   // ? Admin kirim, notif ke admin & owner
-  "Sudah Diambil": ["admin"],      // ? Customer ambil, notif ke admin
-  "Batal": ["owner"]               // ? Siapapun batal, notif ke owner
-  // ? HAPUS: "Proses Cetak" (tidak dipakai sebagai trigger notifikasi)
+const notifyNewOrder = async (io, orderId, invoiceCode, clientName) => {
+  try {
+    const notification = {
+      type: 'new_order',
+      title: 'Pesanan Baru',
+      message: `Pesanan baru dari ${clientName}`,
+      order_id: orderId,
+      invoice_code: invoiceCode,
+      timestamp: new Date().toISOString()
+    };
+
+    // Emit ke semua admin
+    io.to('admin').emit('new_order', notification);
+    
+    // Emit ke semua owner
+    io.to('owner').emit('new_order', notification);
+
+    console.log(`🔔 Notifikasi order baru dikirim: ${invoiceCode}`);
+  } catch (error) {
+    console.error('❌ Error notifyNewOrder:', error);
+    throw error;
+  }
 };
 
 /**
- * Buat notifikasi baru, simpan ke DB, emit via Socket.IO, dan kirim FCM Push
- * @param {Object} io - Socket.IO instance
- * @param {Object} data - Data notifikasi
- * @param {number} data.order_id - ID order
- * @param {string} data.type - Tipe notifikasi (order_new, order_status, order_cancel)
- * @param {string} data.title - Judul notifikasi
- * @param {string} data.message - Pesan notifikasi
- * @param {string} data.target_role - Role target (admin, owner, desainer, operator)
- * @param {string} data.order_code - Kode order untuk referensi
- * @param {string} data.status - Status order saat ini
+ * Kirim notifikasi perubahan status order via Socket.IO
  */
-async function createNotification(io, data) {
+const notifyOrderStatusChange = async (io, orderId, invoiceCode, newStatus, oldStatus) => {
   try {
-    const {
-      order_id,
-      type = "order_status",
-      title,
-      message,
-      target_role,
-      order_code,
-      status
-    } = data;
-
-    // Validasi data wajib
-    if (!order_id || !title || !message || !target_role) {
-      console.error("? createNotification: Missing required fields");
-      return null;
-    }
-
-    // 1. Insert ke database
-    const [result] = await db.query(
-      `INSERT INTO notifications 
-        (order_id, type, title, message, target_role, is_read, created_at)
-       VALUES (?, ?, ?, ?, ?, 0, NOW())`,
-      [order_id, type, title, message, target_role]
-    );
-
-    const notificationId = result.insertId;
-
-    // Data notifikasi untuk Socket.IO
-    const notificationData = {
-      id: notificationId,
-      order_id,
-      order_code,
-      type,
-      title,
-      message,
-      target_role,
-      status,
-      is_read: false,
-      created_at: new Date().toISOString()
+    const notification = {
+      type: 'status_change',
+      title: 'Status Order Berubah',
+      message: `Order ${invoiceCode} berubah dari ${oldStatus} ke ${newStatus}`,
+      order_id: orderId,
+      invoice_code: invoiceCode,
+      old_status: oldStatus,
+      new_status: newStatus,
+      timestamp: new Date().toISOString()
     };
 
-    // 2. Emit ke room Socket.IO berdasarkan role
-    if (io) {
-      io.to(`role_${target_role}`).emit("new_notification", notificationData);
-      console.log(`?? Socket.IO: Notifikasi ke role_${target_role} | Order: ${order_code}`);
-    }
+    // Kirim ke admin & owner
+    io.to('admin').emit('order_status_change', notification);
+    io.to('owner').emit('order_status_change', notification);
 
-    // 3. Kirim FCM Push Notification
-    try {
-      await sendNotificationToRole(
-        target_role,
-        title,
-        message,
-        {
-          notification_id: notificationId.toString(),
-          order_id: order_id.toString(),
-          order_code: order_code || "",
-          type: type,
-          status: status || ""
-        }
-      );
-      console.log(`?? FCM Push: Notifikasi ke role_${target_role} | Order: ${order_code}`);
-    } catch (fcmError) {
-      console.error(`?? FCM Push gagal (DB & Socket.IO tetap berhasil):`, fcmError.message);
-      // Tidak throw error agar tidak mengganggu flow utama
-    }
-
-    return notificationData;
+    console.log(`🔔 Status change notified: ${invoiceCode} (${oldStatus} → ${newStatus})`);
   } catch (error) {
-    console.error("? Error createNotification:", error.message);
-    return null;
+    console.error('❌ Error notifyOrderStatusChange:', error);
+    throw error;
   }
-}
+};
+
+// ====================================================
+// FCM NOTIFICATIONS (Customer - via Backend Customer)
+// ====================================================
+
+// URL Backend Customer (sesuaikan dengan environment Anda)
+const CUSTOMER_BACKEND_URL = process.env.CUSTOMER_BACKEND_URL || 'https://backend-customer-production-0cf4.up.railway.app';
 
 /**
- * Kirim notifikasi ke multiple roles sekaligus
- * @param {Object} io - Socket.IO instance
- * @param {Object} data - Data notifikasi
- * @param {Array<string>} roles - Array role yang perlu menerima notifikasi
+ * Kirim notifikasi ke customer via Backend Customer FCM
  */
-async function sendNotificationToRoles(io, data, roles) {
-  const promises = roles.map(role => 
-    createNotification(io, { ...data, target_role: role })
-  );
-  
+const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStatus = null) => {
   try {
-    const results = await Promise.all(promises);
-    return results.filter(r => r !== null);
+    console.log(`📱 Sending customer notification for order ${invoiceCode}...`);
+
+    // Ambil client_id dari order
+    const [[order]] = await db.query(
+      'SELECT client_id, client_name FROM orders WHERE id = ?',
+      [orderId]
+    );
+
+    if (!order || !order.client_id) {
+      console.log('⚠️ No client_id found, skipping customer notification');
+      return;
+    }
+
+    // Mapping status ke pesan customer-friendly
+    const statusMessages = {
+      'Admin': 'Pesanan Anda sedang diproses oleh admin',
+      'Di Desain': 'Desain sedang dikerjakan',
+      'Proses Desain': 'Desain sedang dikerjakan',
+      'Proses Cetak': 'Pesanan Anda sedang dicetak',
+      'Selesai': 'Pesanan Anda sudah selesai diproduksi',
+      'Dikirim': 'Pesanan Anda sedang dalam pengiriman',
+      'Sudah Diambil': 'Pesanan Anda sudah selesai. Terima kasih!'
+    };
+
+    const title = 'Update Status Pesanan';
+    const body = statusMessages[newStatus] || `Status pesanan berubah menjadi ${newStatus}`;
+
+    // Panggil API Backend Customer untuk kirim FCM
+    const response = await axios.post(
+      `${CUSTOMER_BACKEND_URL}/api/notifications/send`,
+      {
+        user_id: order.client_id,
+        title: title,
+        body: body,
+        data: {
+          type: 'order_update',
+          order_id: orderId,
+          invoice_code: invoiceCode,
+          status: newStatus,
+          old_status: oldStatus
+        }
+      },
+      {
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.data.success) {
+      console.log(`✅ Customer notification sent: ${invoiceCode} → ${order.client_name}`);
+    } else {
+      console.log(`⚠️ Customer notification failed:`, response.data.message);
+    }
+
   } catch (error) {
-    console.error("? Error sendNotificationToRoles:", error.message);
-    return [];
+    // Jangan throw error agar tidak mengganggu flow utama
+    if (error.code === 'ECONNREFUSED') {
+      console.error('❌ Cannot connect to Customer Backend:', CUSTOMER_BACKEND_URL);
+    } else if (error.response) {
+      console.error('❌ Customer Backend error:', error.response.data);
+    } else {
+      console.error('❌ sendCustomerNotification error:', error.message);
+    }
   }
-}
+};
 
 /**
- * Kirim notifikasi berdasarkan status order
- * @param {Object} io - Socket.IO instance
- * @param {number} orderId - ID order
- * @param {string} orderCode - Kode order (IA-ORD-XXXX)
- * @param {string} newStatus - Status baru order
- * @param {string} oldStatus - Status lama order (optional)
+ * Kirim notifikasi ke role tertentu (admin/owner) via Socket.IO
+ * Fungsi ini dipanggil dari Backend Customer
  */
-async function notifyOrderStatusChange(io, orderId, orderCode, newStatus, oldStatus = null) {
-  const targetRoles = STATUS_TO_ROLE_MAP[newStatus];
-  
-  if (!targetRoles || targetRoles.length === 0) {
-    console.log(`?? Tidak ada target role untuk status: ${newStatus}`);
-    return;
-  }
+const sendNotificationToRole = async (io, role, title, body, data = {}) => {
+  try {
+    if (!io) {
+      console.log('⚠️ Socket.IO not available');
+      return;
+    }
 
-  const title = oldStatus 
-    ? `Status Order ${orderCode} Berubah`
-    : `Order Baru ${orderCode}`;
+    const notification = {
+      title,
+      body,
+      ...data,
+      timestamp: new Date().toISOString()
+    };
+
+    // Emit ke room berdasarkan role
+    io.to(role).emit('notification', notification);
     
-  const message = oldStatus
-    ? `Status berubah dari "${oldStatus}" menjadi "${newStatus}"`
-    : `Order baru dengan status "${newStatus}" telah dibuat`;
-
-  await sendNotificationToRoles(io, {
-    order_id: orderId,
-    type: "order_status",
-    title,
-    message,
-    order_code: orderCode,
-    status: newStatus
-  }, targetRoles);
-}
-
-/**
- * Kirim notifikasi order baru dari customer
- * @param {Object} io - Socket.IO instance
- * @param {number} orderId - ID order
- * @param {string} orderCode - Kode order (IA-ORD-XXXX)
- * @param {string} clientName - Nama client
- */
-async function notifyNewOrder(io, orderId, orderCode, clientName) {
-  // ? Hanya ke admin (bukan owner)
-  const targetRoles = ["admin"];
-  
-  await sendNotificationToRoles(io, {
-    order_id: orderId,
-    type: "order_new",
-    title: `Order Baru: ${orderCode}`,
-    message: `Order baru dari ${clientName} telah dibuat`,
-    order_code: orderCode,
-    status: "Admin"
-  }, targetRoles);
-}
-
-/**
- * Kirim notifikasi saat order dibatalkan
- * @param {Object} io - Socket.IO instance
- * @param {number} orderId - ID order
- * @param {string} orderCode - Kode order
- * @param {string} canceledBy - Nama user yang membatalkan
- * @param {string} role - Role user yang membatalkan
- */
-async function notifyOrderCanceled(io, orderId, orderCode, canceledBy, role) {
-  // ? Batal selalu notif ke Owner
-  const targetRoles = ["owner"];
-  
-  await sendNotificationToRoles(io, {
-    order_id: orderId,
-    type: "order_cancel",
-    title: `Order ${orderCode} Dibatalkan`,
-    message: `Order dibatalkan oleh ${canceledBy} (${role})`,
-    order_code: orderCode,
-    status: "Batal"
-  }, targetRoles);
-}
+    console.log(`🔔 Notification sent to ${role}: ${title}`);
+  } catch (error) {
+    console.error(`❌ Error sendNotificationToRole (${role}):`, error);
+    throw error;
+  }
+};
 
 module.exports = {
-  createNotification,
-  sendNotificationToRoles,
-  notifyOrderStatusChange,
+  // Socket.IO (Internal)
   notifyNewOrder,
-  notifyOrderCanceled,
-  STATUS_TO_ROLE_MAP
+  notifyOrderStatusChange,
+  sendNotificationToRole,
+  
+  // FCM (Customer)
+  sendCustomerNotification
 };

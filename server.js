@@ -107,7 +107,7 @@ app.use("/api/fcm", fcmRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/admin/productforcostumer', productforcostumerRoutes);
 app.use('/api/banners', bannerRoutes);
-app.use("/api/internal", internalRoutes);
+app.use('/api/internal', require('./routes/internalRoutes'));
 app.use("/api/owner", ownerTableRoutes);
 app.use("/api/admin/rewards", adminRewardRoutes);
 

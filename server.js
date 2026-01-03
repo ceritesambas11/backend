@@ -107,7 +107,7 @@ app.use("/api/fcm", fcmRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/admin/productforcostumer', productforcostumerRoutes);
 app.use('/api/banners', bannerRoutes);
-app.use('/api/internal', require('./routes/internalRoutes'));
+app.use('/api/internal', internalRoutes);  // Use imported variable from line 29
 app.use("/api/owner", ownerTableRoutes);
 app.use("/api/admin/rewards", adminRewardRoutes);
 
@@ -176,11 +176,17 @@ app.set("io", io);
 
 io.on("connection", (socket) => {
   const { role, userId } = socket.handshake.auth || {};
-  if (role) socket.join(`role_${role}`);
+  
+  // ✅ Join rooms WITHOUT prefix
+  if (role) socket.join(role);  // Join 'admin' or 'owner' directly
   if (userId) socket.join(`user_${userId}`);
+  
   console.log(`🔌 Socket connected: role=${role || "unknown"}, user=${userId || "anon"}`);
+  
+  socket.on("disconnect", () => {
+    console.log(`🔌 Socket disconnected: role=${role}, user=${userId || "anon"}`);
+  });
 });
-
 // ==================== START SERVER ====================
 const startServer = async () => {
   try {

@@ -123,7 +123,7 @@ const response = await axios.post(
   payload,
   {
     headers: {
-      'x-api-key': apiKey,                   // ✅ BENAR
+      'x-api-key': process.env.INTERNAL_API_KEY,                   // ✅ BENAR
       'Content-Type': 'application/json'
     },
     timeout: 10000

@@ -101,7 +101,7 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
     const body = statusMessages[newStatus] || `Status pesanan berubah menjadi ${newStatus}`;
 
     // Panggil API Backend Customer untuk kirim FCM
-    const apiKey = process.env.INTERNAL_API_KEY || process.env.INTERNAL_SECRET || 'indiegoart-internal-2026';
+    const apiKey = process.env.INTERNAL_API_KEY || process.env.INTERNAL_SECRET || 'rahasia-indiego-2026';
     
     const payload = {
       user_id: order.client_id,

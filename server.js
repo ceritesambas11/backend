@@ -1,7 +1,7 @@
 // server.js
 require('dotenv').config();
 process.env.TZ = 'Asia/Jakarta';
-console.log("?? Timezone set to:", process.env.TZ);
+console.log("🕐 Timezone set to:", process.env.TZ);
 
 const express = require('express');
 const cors = require('cors');
@@ -24,7 +24,7 @@ const ownerAttendanceRoutes = require("./routes/ownerAttendanceRoutes");
 const ownerPayrollRoutes = require("./routes/ownerPayrollRoutes");
 const ownerLoanRoutes = require("./routes/ownerLoanRoutes");
 const shiftSettingsRoutes = require("./routes/shiftSettingsRoutes");
-const notificationRoutes = require("./routes/notificationsRoutes");
+const notificationRoutes = require("./routes/notificationsRoutes"); // Pilih salah satu yang benar
 const fcmRoutes = require("./routes/fcmRoutes");
 const authRoutes = require('./routes/authRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
@@ -36,22 +36,16 @@ const productforcostumerRoutes = require('./routes/productforcostumerRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const internalRoutes = require("./routes/internalRoutes");
 const ownerTableRoutes = require("./routes/ownerTableRoutes");
-const adminRewardRoutes = require("./routes/adminRewardRoutes"); // ?? NEW!
-const notificationRoutes = require('./routes/notifications');
-
+const adminRewardRoutes = require("./routes/adminRewardRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ==================== MIDDLEWARE ====================
-app.use('/api/notifications', notificationRoutes);
 // CORS - Allow all origins including mobile apps (Capacitor WebView)
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
-    // This is important for Capacitor/Cordova apps
     if (!origin) return callback(null, true);
-    // Allow all origins
     return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -67,7 +61,7 @@ app.options('*', cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Logging tiap request (with origin info for debugging)
+// Logging tiap request
 app.use((req, res, next) => {
   const timestamp = new Date().toLocaleTimeString('id-ID');
   const origin = req.headers.origin || req.headers.referer || 'no-origin';
@@ -75,7 +69,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ==================== FIX: USER ROUTES (AMAN 100%) ====================
+// ==================== FIX: USER ROUTES ====================
 const expressRouter = express.Router();
 const userController = require('./controllers/userController');
  
@@ -115,7 +109,7 @@ app.use('/api/admin/productforcostumer', productforcostumerRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use("/api/internal", internalRoutes);
 app.use("/api/owner", ownerTableRoutes);
-app.use("/api/admin/rewards", adminRewardRoutes); // ?? NEW!
+app.use("/api/admin/rewards", adminRewardRoutes);
 
 // ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
@@ -143,8 +137,8 @@ app.get('/', (req, res) => {
       orders: '/api/orders',
       shifts: '/api/shifts',
       rewards: '/api/admin/rewards',
-      banners: '/api/banners',  // ✅ Add this
-      productForCustomer: '/api/admin/productforcostumer'  // ✅ Add this too
+      banners: '/api/banners',
+      productForCustomer: '/api/admin/productforcostumer'
     }
   });
 });
@@ -184,22 +178,22 @@ io.on("connection", (socket) => {
   const { role, userId } = socket.handshake.auth || {};
   if (role) socket.join(`role_${role}`);
   if (userId) socket.join(`user_${userId}`);
-  console.log(`?? Socket connected: role=${role || "unknown"}, user=${userId || "anon"}`);
+  console.log(`🔌 Socket connected: role=${role || "unknown"}, user=${userId || "anon"}`);
 });
 
 // ==================== START SERVER ====================
 const startServer = async () => {
   try {
     await db.query('SELECT 1');
-    console.log('? Database: Connected');
+    console.log('✅ Database: Connected');
     const HOST = process.env.HOST || '0.0.0.0';
-    server.listen(PORT, () => {
+    server.listen(PORT, HOST, () => {
       console.log('\n' + '='.repeat(60));
-      console.log('?? Indiego Art API Server');
+      console.log('🚀 Indiego Art API Server');
       console.log('='.repeat(60));
-      console.log(`?? Server running on: http://localhost:${PORT}`);
-      console.log(`?? Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log('\n?? API Endpoints:');
+      console.log(`🌐 Server running on: http://localhost:${PORT}`);
+      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log('\n📋 API Endpoints:');
       console.log('   POST   /api/auth/login           - Login');
       console.log('   POST   /api/auth/register        - Register');
       console.log('   GET    /api/auth/profile         - Get profile');
@@ -209,7 +203,7 @@ const startServer = async () => {
       console.log('   GET    /api/clients              - Get all clients');
       console.log('   GET    /api/orders               - Get all orders');
       console.log('   GET    /api/shifts               - Get shift settings');
-      console.log('\n?? Reward Endpoints:');
+      console.log('\n🎁 Reward Endpoints:');
       console.log('   GET    /api/admin/rewards/coin-rules       - Get coin rules');
       console.log('   PUT    /api/admin/rewards/coin-rules       - Update coin rules');
       console.log('   GET    /api/admin/rewards/vouchers         - Get all vouchers');
@@ -218,26 +212,26 @@ const startServer = async () => {
       console.log('   DELETE /api/admin/rewards/vouchers/:id     - Delete voucher');
       console.log('   POST   /api/admin/rewards/give-voucher     - Give voucher');
       console.log('   GET    /api/admin/rewards/stats            - Get statistics');
-      console.log('\n?? Socket.IO enabled');
+      console.log('\n🔌 Socket.IO enabled');
       console.log('='.repeat(60) + '\n');
     });
 
   } catch (error) {
-    console.error('? Database: Connection failed:', error.message);
-    console.error(`[${new Date().toLocaleString('id-ID')}] ? Failed to start server:`, error.message);
+    console.error('❌ Database: Connection failed:', error.message);
+    console.error(`[${new Date().toLocaleString('id-ID')}] ❌ Failed to start server:`, error.message);
     process.exit(1);
   }
 };
 
 // ==================== GRACEFUL SHUTDOWN ====================
 process.on('SIGINT', async () => {
-  console.log('\n?? SIGINT received, shutting down gracefully...');
+  console.log('\n👋 SIGINT received, shutting down gracefully...');
   await db.end();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n?? SIGTERM received, shutting down gracefully...');
+  console.log('\n👋 SIGTERM received, shutting down gracefully...');
   await db.end();
   process.exit(0);
 });

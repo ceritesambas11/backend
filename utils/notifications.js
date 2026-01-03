@@ -101,41 +101,35 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
     const body = statusMessages[newStatus] || `Status pesanan berubah menjadi ${newStatus}`;
 
     // Panggil API Backend Customer untuk kirim FCM
-    const apiKey = process.env.INTERNAL_API_KEY || process.env.INTERNAL_SECRET || 'rahasia-indiego-2026';
-    
-    const payload = {
-      user_id: order.client_id,
-      title: title,
-      body: body,
-      data: {
-        type: 'order_update',
-        order_id: orderId,
-        invoice_code: invoiceCode,
-        status: newStatus,
-        old_status: oldStatus
-      }
-    };
-    
-    console.log('📤 Sending to Customer Backend:', JSON.stringify(payload, null, 2));
-    
-    const response = await axios.post(
-      `${CUSTOMER_BACKEND_URL}/api/notifications/send`,
-{
-      user_id: order.client_id,                               // ✅ REQUIRED
-      title: '📦 Update Status Pesanan',                // ✅ REQUIRED  
-      message: `Order ${invoiceCode}: ${oldStatus} → ${newStatus}`,  // ✅ REQUIRED (bukan body)
-      type: 'order_status_change',
-      order_id: orderId,
-      invoice_code: invoiceCode,
-      status: newStatus
-    }, {
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-        'User-Agent': 'IndieGoArt-Admin/1.0'
-      },
-      timeout: 10000
-    });
+const apiKey = process.env.INTERNAL_API_KEY || 'rahasia-indiego-2026';
+
+const payload = {
+  user_id: order.client_id,                 // ✅ REQUIRED
+  title: '📦 Update Status Pesanan',         // ✅ REQUIRED
+  message: `Order ${invoiceCode}: ${oldStatus} → ${newStatus}`, // ✅ REQUIRED
+  type: 'order_status_change',
+  order_id: orderId,
+  data: {
+    invoice_code: invoiceCode,
+    status: newStatus,
+    old_status: oldStatus
+  }
+};
+
+console.log('📤 Sending to Customer Backend:', payload);
+
+const response = await axios.post(
+  `${CUSTOMER_BACKEND_URL}/api/notifications/send`,
+  payload,
+  {
+    headers: {
+      'x-api-key': apiKey,                   // ✅ BENAR
+      'Content-Type': 'application/json'
+    },
+    timeout: 10000
+  }
+);
+
 
     if (response.data.success) {
       console.log(`✅ Customer notification sent: ${invoiceCode} → ${order.client_name}`);

@@ -121,7 +121,7 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
     const response = await axios.post(
       `${CUSTOMER_BACKEND_URL}/api/notifications/send`,
 {
-      user_id: clientId,                                // ✅ REQUIRED
+      user_id: order.client_id,                               // ✅ REQUIRED
       title: '📦 Update Status Pesanan',                // ✅ REQUIRED  
       message: `Order ${invoiceCode}: ${oldStatus} → ${newStatus}`,  // ✅ REQUIRED (bukan body)
       type: 'order_status_change',

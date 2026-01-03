@@ -120,15 +120,22 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
     
     const response = await axios.post(
       `${CUSTOMER_BACKEND_URL}/api/notifications/send`,
-      payload,
-      {
-        timeout: 5000,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey
-        }
-      }
-    );
+{
+      user_id: clientId,                                // ✅ REQUIRED
+      title: '📦 Update Status Pesanan',                // ✅ REQUIRED  
+      message: `Order ${invoiceCode}: ${oldStatus} → ${newStatus}`,  // ✅ REQUIRED (bukan body)
+      type: 'order_status_change',
+      order_id: orderId,
+      invoice_code: invoiceCode,
+      status: newStatus
+    }, {
+      headers: {
+        'x-internal-secret': apiKey,
+        'Content-Type': 'application/json',
+        'User-Agent': 'IndieGoArt-Admin/1.0'
+      },
+      timeout: 10000
+    });
 
     if (response.data.success) {
       console.log(`✅ Customer notification sent: ${invoiceCode} → ${order.client_name}`);

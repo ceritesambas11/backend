@@ -130,7 +130,7 @@ const sendCustomerNotification = async (orderId, invoiceCode, newStatus, oldStat
       status: newStatus
     }, {
       headers: {
-        'x-internal-secret': apiKey,
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
         'User-Agent': 'IndieGoArt-Admin/1.0'
       },

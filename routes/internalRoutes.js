@@ -8,7 +8,7 @@ const router = express.Router();
  */
 const validateInternalRequest = (req, res, next) => {
   const secret = req.headers['x-internal-secret'];
-  const expectedSecret = process.env.INTERNAL_API_KEY || process.env.INTERNAL_SECRET || 'indiegoart-internal-2026';
+  const expectedSecret = process.env.INTERNAL_API_KEY || process.env.INTERNAL_SECRET || 'rahasia-indiego-2026';
   
   console.log('🔑 [Internal] Received key:', secret ? secret.substring(0, 20) + '...' : 'NONE');
   

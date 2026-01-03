@@ -2,7 +2,7 @@
 
 const db = require('../config/database');
 const { notifyNewOrder, notifyOrderStatusChange } = require("../utils/notifications");
-
+const { sendCustomerNotification } = require('../utils/notifications');
 // ====================================================
 // CREATE ORDER (Buat Order Baru) - NEW INVOICE STRUCTURE
 // ====================================================

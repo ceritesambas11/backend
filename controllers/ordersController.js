@@ -459,30 +459,29 @@ exports.updateOrder = async (req, res) => {
       );
     }
 
+    // ✅ BAGIAN YANG DIUBAH: Status change notification
     if (status && status !== oldStatus) {
       await conn.query(
         `INSERT INTO order_history (order_id, status, deskripsi, tanggal)
          VALUES (?, ?, ?, NOW())`,
         [id, status, `Status diubah dari ${oldStatus} ke ${status}`]
       );
-    }
 
-if (status && status !== oldStatus) {
-      await conn.query(
-        `INSERT INTO order_history (order_id, status, deskripsi, tanggal)
-
-VALUES (?, ?, ?, NOW())`,
-        [id, status, `Status diubah dari ${oldStatus} ke ${status}`]
-      );
-
- // ? TAMBAHAN: Kirim notifikasi status change
+      // 🔔 Kirim notifikasi ke role internal (Socket.IO)
       try {
         const io = req.app.get("io");
         if (io) {
-          await notifyOrderStatusChange(io, id, prev.invoice_code, status, oldStatus);
+          await notifyOrderStatusChange(io, id, invoiceCode, status, oldStatus);
         }
       } catch (e) {
-        console.error("? Notification error:", e);
+        console.error("🔔 Notification error (internal):", e);
+      }
+
+      // ✅ TAMBAHAN BARU: Kirim notifikasi ke CUSTOMER (FCM via Backend Customer)
+      try {
+        await sendCustomerNotification(id, invoiceCode, status, oldStatus);
+      } catch (e) {
+        console.error("❌ Customer notification error:", e);
       }
     }
 
